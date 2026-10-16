@@ -1,18 +1,13 @@
 """
 app.py
 ------
-Streamlit UI for the Gemini-powered RAG Document Q&A app.
+Mobile-first & Desktop-Responsive Streamlit UI for Gemini RAG Document Q&A.
 
-Run:
-    streamlit run app.py
-
-Highlights
-    * API key auto-detected from st.secrets / environment, with a status badge
-      and an optional "Use Custom Gemini API Key" override expander.
-    * Dark, gradient-styled UI with message bubbles and metadata badges.
-    * Document stats card (filename, pages, characters, chunks) after indexing.
-    * Quick-question buttons, citation cards per answer, and a markdown export
-      of the whole discussion.
+Key Features:
+  - Responsive Layout: Primary document upload controls sit directly in the main page body.
+  - Auto Collapsed Sidebar: Mobile visitors land on a clean view without sidebar overlays.
+  - Fluid Styling: Uses CSS clamp() and flexwrap to ensure text and badges scale naturally.
+  - Flexible API Key Fallback: Reads Streamlit secrets first, falling back gracefully to inline inputs.
 """
 
 from __future__ import annotations
@@ -26,7 +21,6 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from rag_engine import (
-    API_KEY_ENV_VARS,
     EMBEDDING_MODEL,
     LLM_MODEL,
     LLM_OPTIONS,
@@ -43,12 +37,12 @@ load_dotenv()
 st.set_page_config(
     page_title="Gemini RAG · Document Q&A",
     page_icon="✨",
-    layout="wide",
-    initial_sidebar_state="expanded",
+    layout="centered",
+    initial_sidebar_state="collapsed",  # collapsed by default for clean mobile startup
 )
 
 # --------------------------------------------------------------------------- #
-# Dark theme + custom CSS
+# Theme & Mobile-Responsive CSS Overhaul
 # --------------------------------------------------------------------------- #
 
 CUSTOM_CSS = """
@@ -68,154 +62,193 @@ CUSTOM_CSS = """
 html, body, [data-testid="stAppViewContainer"] { background: var(--gr-bg); }
 .stApp {
     background:
-        radial-gradient(1100px 620px at 6% -12%, rgba(124, 156, 255, 0.17), transparent 60%),
-        radial-gradient(900px 520px at 100% -4%, rgba(192, 140, 255, 0.14), transparent 55%),
-        radial-gradient(700px 400px at 60% 110%, rgba(89, 224, 197, 0.07), transparent 60%),
+        radial-gradient(900px 520px at 8% -10%, rgba(124, 156, 255, 0.16), transparent 60%),
+        radial-gradient(760px 440px at 100% -6%, rgba(192, 140, 255, 0.13), transparent 55%),
         var(--gr-bg);
     color: var(--gr-text);
 }
-.block-container { padding-top: 2rem; max-width: 1080px; }
 
-/* ---------- headers ---------- */
-.gr-hero { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 0.3rem; }
+/* Responsive shell container */
+.block-container {
+    padding: 1.1rem 0.8rem 7.5rem 0.8rem;
+    max-width: 900px;
+}
+@media (min-width: 768px) {
+    .block-container { padding: 2rem 1.5rem 7rem 1.5rem; }
+}
+
+/* Fluid headers that never overflow on small screens */
+.gr-hero { 
+    display: flex; 
+    align-items: center; 
+    gap: 0.7rem; 
+    margin-bottom: 0.2rem; 
+    flex-wrap: wrap;
+}
 .gr-hero-badge {
-    width: 48px; height: 48px; border-radius: 15px; flex: 0 0 auto;
-    display: grid; place-items: center; font-size: 1.4rem;
+    width: 38px; height: 38px; border-radius: 12px; flex: 0 0 auto;
+    display: grid; place-items: center; font-size: 1.15rem;
     background: linear-gradient(135deg, var(--gr-a), var(--gr-b));
-    box-shadow: 0 10px 30px rgba(124, 156, 255, 0.38);
+    box-shadow: 0 8px 24px rgba(124, 156, 255, 0.35);
 }
 .gr-title {
-    font-size: 1.8rem; font-weight: 750; letter-spacing: -0.025em; line-height: 1.12;
+    font-size: clamp(1.25rem, 5vw, 1.75rem); 
+    font-weight: 750; 
+    letter-spacing: -0.02em; 
+    line-height: 1.2;
     background: linear-gradient(92deg, #ffffff 10%, #b9c6ff 55%, #d9bcff 95%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; 
+    -webkit-text-fill-color: transparent;
+    word-break: break-word;
 }
-.gr-sub { color: var(--gr-muted); font-size: 0.92rem; margin: 0 0 1rem 0; }
-.gr-h { font-size: 1.02rem; font-weight: 700; letter-spacing: -0.01em; margin: 0.2rem 0 0.15rem; }
+.gr-sub { color: var(--gr-muted); font-size: clamp(0.78rem, 3vw, 0.86rem); margin: 0 0 0.9rem 0; }
+.gr-h { font-size: 0.95rem; font-weight: 700; margin: 0.2rem 0; }
 .gr-muted { color: var(--gr-muted); }
 
-/* ---------- cards ---------- */
+/* Card components */
 .gr-card {
     background: var(--gr-panel);
     border: 1px solid var(--gr-border);
-    border-radius: 16px;
-    padding: 1rem 1.15rem;
-    margin: 0.55rem 0;
+    border-radius: 14px;
+    padding: 0.85rem 0.95rem;
+    margin: 0.5rem 0;
     backdrop-filter: blur(7px);
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.22);
 }
-.gr-card.soft { background: var(--gr-panel-2); box-shadow: none; }
 
-/* ---------- stats card ---------- */
+/* Compact Key Warning */
+.gr-warn {
+    display: flex; gap: 0.6rem; align-items: flex-start;
+    border: 1px solid rgba(255, 186, 90, 0.34);
+    background: linear-gradient(135deg, rgba(255,186,90,0.13), rgba(255,186,90,0.05));
+    border-radius: 12px; padding: 0.65rem 0.8rem; margin: 0.3rem 0;
+}
+.gr-warn-icon { font-size: 1rem; line-height: 1.25; }
+.gr-warn-body { font-size: 0.82rem; color: #ffd79a; line-height: 1.4; }
+.gr-warn-body b { color: #ffe6bd; }
+
+/* Grid stats for document details */
 .gr-stats {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 0.7rem; margin-top: 0.85rem;
+    display: grid; 
+    grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
+    gap: 0.5rem; 
+    margin-top: 0.65rem;
 }
 .gr-stat {
-    background: rgba(0, 0, 0, 0.28);
-    border: 1px solid var(--gr-border);
-    border-radius: 13px; padding: 0.65rem 0.8rem;
+    background: rgba(0, 0, 0, 0.28); border: 1px solid var(--gr-border);
+    border-radius: 11px; padding: 0.55rem 0.65rem;
 }
 .gr-stat-k {
-    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.09em;
-    color: var(--gr-muted); margin-bottom: 0.28rem;
+    font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--gr-muted); margin-bottom: 0.2rem;
 }
-.gr-stat-v { font-size: 1.24rem; font-weight: 750; letter-spacing: -0.02em; }
+.gr-stat-v { font-size: 1.05rem; font-weight: 750; letter-spacing: -0.02em; }
 .gr-stat-v.accent {
     background: linear-gradient(135deg, var(--gr-a), var(--gr-b));
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
 }
 
-/* ---------- badges ---------- */
-.gr-badges { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.45rem 0 0.8rem; }
+/* Badges flexbox row */
+.gr-badges { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.4rem 0 0.7rem; }
 .gr-badge {
-    display: inline-flex; align-items: center; gap: 0.35rem;
-    padding: 0.24rem 0.62rem; border-radius: 999px;
-    font-size: 0.73rem; font-weight: 650; letter-spacing: 0.01em;
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 0.2rem 0.52rem; border-radius: 999px;
+    font-size: 0.68rem; font-weight: 650; white-space: nowrap;
     border: 1px solid var(--gr-border);
     background: rgba(124, 156, 255, 0.13); color: #cfd9ff;
 }
 .gr-badge.ok { background: rgba(89, 224, 197, 0.14); color: #a6f4e2; border-color: rgba(89,224,197,0.30); }
 .gr-badge.warn { background: rgba(255, 186, 90, 0.14); color: #ffd79a; border-color: rgba(255,186,90,0.30); }
 .gr-badge.dot::before {
-    content: ""; width: 6px; height: 6px; border-radius: 50%;
-    background: currentColor; box-shadow: 0 0 8px currentColor;
+    content: ""; width: 5px; height: 5px; border-radius: 50%;
+    background: currentColor; box-shadow: 0 0 6px currentColor;
 }
 
-/* ---------- citation cards ---------- */
+/* Citation source blocks */
 .gr-cite {
     border: 1px solid var(--gr-border);
     border-left: 3px solid var(--gr-a);
-    border-radius: 4px 13px 13px 4px;
+    border-radius: 4px 11px 11px 4px;
     background: rgba(0, 0, 0, 0.26);
-    padding: 0.6rem 0.8rem; margin: 0 0 0.55rem 0;
+    padding: 0.5rem 0.65rem; margin: 0 0 0.45rem 0;
 }
 .gr-cite-head {
-    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
-    font-size: 0.78rem; color: var(--gr-muted); margin-bottom: 0.4rem;
+    display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+    font-size: 0.74rem; color: var(--gr-muted); margin-bottom: 0.3rem;
 }
 .gr-cite-num {
-    width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center;
-    font-size: 0.68rem; font-weight: 800; color: #080c18;
+    width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center;
+    font-size: 0.64rem; font-weight: 800; color: #080c18;
     background: linear-gradient(135deg, var(--gr-a), var(--gr-b));
 }
 .gr-cite-body {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.79rem; line-height: 1.52; color: #ccd6f0;
+    font-size: 0.75rem; line-height: 1.45; color: #ccd6f0;
     white-space: pre-wrap; word-break: break-word;
-    max-height: 240px; overflow: auto;
+    max-height: 200px; overflow: auto;
 }
 
-/* ---------- chat bubbles ---------- */
+/* Chat bubble optimization */
 [data-testid="stChatMessage"] {
     background: var(--gr-panel);
     border: 1px solid var(--gr-border);
-    border-radius: 18px;
-    padding: 0.9rem 1.05rem;
-    margin-bottom: 0.65rem;
-    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.20);
+    border-radius: 14px;
+    padding: 0.7rem 0.8rem;
+    margin-bottom: 0.5rem;
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.18);
 }
 
-/* ---------- controls ---------- */
-.stButton > button {
-    border-radius: 12px; font-weight: 650; border: 1px solid var(--gr-border);
-    background: rgba(255, 255, 255, 0.05); color: var(--gr-text);
-    transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+/* Pinned chat input styling */
+[data-testid="stChatInput"] {
+    background: rgba(8, 12, 24, 0.94);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--gr-border);
+    padding-top: 0.4rem;
 }
-.stButton > button:hover {
-    transform: translateY(-1px); border-color: rgba(124, 156, 255, 0.55);
-    box-shadow: 0 9px 24px rgba(124, 156, 255, 0.22);
+
+/* Buttons and Mobile Touch Targets */
+.stButton > button {
+    border-radius: 11px; font-weight: 650; border: 1px solid var(--gr-border);
+    background: rgba(255, 255, 255, 0.05); color: var(--gr-text);
+    padding: 0.4rem 0.55rem; font-size: 0.83rem;
+    transition: all 0.12s ease;
 }
 .stButton > button[kind="primary"] {
     background: linear-gradient(135deg, var(--gr-a), var(--gr-b));
     border: none; color: #080c18;
 }
 [data-testid="stSidebar"] {
-    background: rgba(6, 9, 20, 0.80);
+    background: rgba(6, 9, 20, 0.95);
     border-right: 1px solid var(--gr-border);
 }
 [data-testid="stExpander"] {
-    border: 1px solid var(--gr-border); border-radius: 14px;
+    border: 1px solid var(--gr-border); border-radius: 12px;
     background: var(--gr-panel-2); overflow: hidden;
 }
 
-/* ---------- spinner ---------- */
+/* Animated Load Spinner */
 @keyframes gr-orbit { to { transform: rotate(360deg); } }
 @keyframes gr-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
 .gr-spinner {
-    display: flex; align-items: center; gap: 0.7rem;
-    padding: 0.7rem 0.95rem; border-radius: 14px;
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.6rem 0.8rem; border-radius: 12px;
     border: 1px solid var(--gr-border); background: var(--gr-panel);
-    color: var(--gr-muted); font-size: 0.88rem;
+    color: var(--gr-muted); font-size: 0.82rem;
 }
 .gr-spinner-ring {
-    width: 18px; height: 18px; border-radius: 50%; flex: 0 0 auto;
+    width: 16px; height: 16px; border-radius: 50%; flex: 0 0 auto;
     border: 2px solid rgba(124, 156, 255, 0.25);
     border-top-color: var(--gr-a);
     animation: gr-orbit 0.8s linear infinite;
 }
 .gr-spinner-dot {
-    width: 6px; height: 6px; border-radius: 50%; background: var(--gr-b);
+    width: 5px; height: 5px; border-radius: 50%; background: var(--gr-b);
     animation: gr-pulse 1.1s ease-in-out infinite;
+}
+
+/* Media Query Touch Improvements */
+@media (max-width: 640px) {
+    .stButton > button { min-height: 40px; }
 }
 </style>
 """
@@ -224,18 +257,15 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 
 # --------------------------------------------------------------------------- #
-# Small HTML helpers
+# Helper Render Functions
 # --------------------------------------------------------------------------- #
 
 def esc(text) -> str:
     return html.escape(str(text if text is not None else ""))
 
 
-def card(body: str, soft: bool = False) -> None:
-    st.markdown(
-        f"<div class='gr-card{' soft' if soft else ''}'>{body}</div>",
-        unsafe_allow_html=True,
-    )
+def card(body: str) -> None:
+    st.markdown(f"<div class='gr-card'>{body}</div>", unsafe_allow_html=True)
 
 
 def badges(items: list[tuple[str, str]], dot: bool = False) -> None:
@@ -254,8 +284,18 @@ def spinner(label: str) -> None:
     )
 
 
+def key_warning() -> None:
+    st.markdown(
+        "<div class='gr-warn'>"
+        "<div class='gr-warn-icon'>🔑</div>"
+        "<div class='gr-warn-body'><b>No Gemini API key found.</b> Save "
+        "<code>GEMINI_API_KEY</code> under Streamlit Secrets, or paste a key below.</div>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+
 def render_sources(sources: list[dict], expanded: bool = False) -> None:
-    """Collapsible citation cards for the retrieved context."""
     if not sources:
         return
     pages = sorted({s["page"] for s in sources if s.get("page") is not None})
@@ -286,7 +326,7 @@ def stats_card(stats: dict) -> None:
         ("Pages", f"{stats.get('pages', 0)}"),
         ("Characters", f"{stats.get('characters', 0):,}"),
         ("Chunks", f"{stats.get('chunks', 0)}"),
-        ("Chunk size", f"{stats.get('chunk_size', '—')} / {stats.get('chunk_overlap', '—')}"),
+        ("Size / overlap", f"{stats.get('chunk_size', '—')} / {stats.get('chunk_overlap', '—')}"),
     ]
     cells = "".join(
         f"<div class='gr-stat'><div class='gr-stat-k'>{esc(k)}</div>"
@@ -295,16 +335,14 @@ def stats_card(stats: dict) -> None:
     )
     card(
         "<div class='gr-h'>📄 " + esc(stats.get("filename", "document.pdf")) + "</div>"
-        "<div class='gr-muted' style='font-size:0.82rem'>Indexed and ready for questions"
-        "</div>"
+        "<div class='gr-muted' style='font-size:0.78rem'>Indexed & Ready</div>"
         f"<div class='gr-stats'>{cells}</div>"
     )
 
 
 def build_markdown() -> str:
-    """Export the discussion, sources included, as markdown."""
     lines = [
-        "# Document Q&A — Discussion",
+        "# Document Q&A — Chat Log",
         "",
         f"- **Document:** {st.session_state.indexed_name or '—'}",
         f"- **Model:** {st.session_state.indexed_with or LLM_MODEL}",
@@ -315,13 +353,12 @@ def build_markdown() -> str:
     ]
     for message in st.session_state.messages:
         if message["role"] == "user":
-            lines += [f"## 🧑 Question", "", message["content"], ""]
+            lines += ["## 🧑 Question", "", message["content"], ""]
         else:
             lines += ["## ✨ Answer", "", message["content"], ""]
             for i, src in enumerate(message.get("sources") or [], start=1):
-                page = src.get("page")
                 lines += [
-                    f"<details><summary>Source {i} — page {page}, "
+                    f"<details><summary>Source {i} — page {src.get('page')}, "
                     f"chunk {src.get('chunk')}</summary>",
                     "",
                     "```",
@@ -332,12 +369,12 @@ def build_markdown() -> str:
                     "",
                 ]
     if not st.session_state.messages:
-        lines.append("_No questions asked yet._")
+        lines.append("_No discussion history available._")
     return "\n".join(lines)
 
 
 # --------------------------------------------------------------------------- #
-# Session state
+# Application State Initialization
 # --------------------------------------------------------------------------- #
 
 st.session_state.setdefault("engine", None)
@@ -346,7 +383,6 @@ st.session_state.setdefault("indexed_name", None)
 st.session_state.setdefault("chunk_count", 0)
 st.session_state.setdefault("indexed_with", None)
 st.session_state.setdefault("doc_stats", {})
-st.session_state.setdefault("pending_question", None)
 
 auto_key = auto_api_key()
 auto_source = key_source()
@@ -359,116 +395,45 @@ QUICK_QUESTIONS = [
 
 
 # --------------------------------------------------------------------------- #
-# Sidebar
+# Sidebar Drawer (Secondary Advanced Controls Only)
 # --------------------------------------------------------------------------- #
 
 with st.sidebar:
-    st.markdown("### ✨ Gemini RAG")
-    st.caption("Upload a PDF, index it, ask questions.")
+    st.markdown("### ⚙️ Settings")
+    st.caption("Model configurations")
 
-    # ---- API key -------------------------------------------------------- #
     if auto_key:
-        st.success("API Key Loaded Automatically")
-        st.caption(f"Source: {auto_source}")
+        st.markdown(
+            "<span class='gr-badge ok'>Key Loaded · " + esc(auto_source) + "</span>",
+            unsafe_allow_html=True,
+        )
     else:
-        st.warning("No API key detected — add one below or in `.streamlit/secrets.toml`.")
+        st.markdown("<span class='gr-badge warn'>No Key Detected</span>", unsafe_allow_html=True)
 
-    with st.expander("Use Custom Gemini API Key", expanded=not bool(auto_key)):
-        custom_key = st.text_input(
-            "Gemini API key",
-            type="password",
-            placeholder="AIza…",
-            help="Overrides the key loaded from secrets / environment for this session.",
-            label_visibility="collapsed",
-        ).strip()
-        if custom_key:
-            st.markdown(
-                "<span class='gr-badge ok'>using custom key</span>",
-                unsafe_allow_html=True,
-            )
-        else:
-            st.caption("Leave empty to use the automatically loaded key.")
-
-    st.divider()
-
-    # ---- models --------------------------------------------------------- #
-    st.markdown("**Models**")
     embedding_model = st.selectbox(
         "Embedding model",
         [EMBEDDING_MODEL] + RETIRED_EMBEDDING_MODELS,
-        help="gemini-embedding-001 is the live model. models/embedding-001 and "
-             "text-embedding-004 are retired and return 404.",
+        help="gemini-embedding-001 is active.",
     )
     llm_options = LLM_OPTIONS if LLM_MODEL in LLM_OPTIONS else [LLM_MODEL] + LLM_OPTIONS
     llm_model = st.selectbox(
         "LLM",
         llm_options,
         index=llm_options.index(LLM_MODEL),
-        help="Gemini 3.x Flash is current. 1.5 / 2.0 / 2.5 are retired and return 404.",
     )
     custom_llm = st.text_input(
         "Or type a model id", placeholder="gemini-3.8-flash",
-        help="Any live Gemini model id; overrides the dropdown.",
     ).strip()
     if custom_llm:
         llm_model = custom_llm
     if llm_model in RETIRED_LLM_MODELS:
         st.markdown(
-            "<span class='gr-badge warn'>retired model — will 404</span>",
+            "<span class='gr-badge warn'>Retired model</span>",
             unsafe_allow_html=True,
         )
+
     k = st.slider("Snippets to retrieve (k)", 1, 10, 4)
 
-    st.divider()
-
-    # ---- document ------------------------------------------------------- #
-    st.markdown("**Document**")
-    uploaded = st.file_uploader("Upload a PDF", type=["pdf"], label_visibility="collapsed")
-
-    already_indexed = uploaded is not None and st.session_state.indexed_name == uploaded.name
-    if st.button("Index document", type="primary", use_container_width=True, disabled=already_indexed):
-        if uploaded is None:
-            st.warning("Upload a PDF first.")
-        else:
-            try:
-                resolve_api_key(custom_key)  # fail fast, before any API call
-            except RuntimeError as exc:
-                st.error(str(exc))
-            else:
-                placeholder = st.empty()
-                with placeholder.container():
-                    spinner("Reading and chunking the PDF…")
-                try:
-                    engine = RAGEngine(
-                        api_key=custom_key,
-                        embedding_model=embedding_model,
-                        llm_model=llm_model,
-                        k=k,
-                    )
-                    engine._llm()  # fail fast on a retired model id, before embedding
-                    count = engine.load_pdf(uploaded.getvalue(), filename=uploaded.name)
-                except Exception as exc:
-                    placeholder.empty()
-                    st.error(f"Could not index the document: {exc}")
-                    with st.expander("Traceback"):
-                        st.code(traceback.format_exc())
-                else:
-                    placeholder.empty()
-                    st.session_state.engine = engine
-                    st.session_state.indexed_name = uploaded.name
-                    st.session_state.chunk_count = count
-                    st.session_state.indexed_with = f"{llm_model}"
-                    st.session_state.doc_stats = dict(engine.stats)
-                    st.session_state.messages = []
-                    st.success(f"Indexed {uploaded.name} — {count} chunks.")
-
-    if st.session_state.indexed_name:
-        badges([
-            (f"{st.session_state.chunk_count} chunks", "ok"),
-            (f"k={k}", ""),
-        ])
-
-    # ---- export --------------------------------------------------------- #
     st.divider()
     st.download_button(
         "⬇️ Download Discussion (.md)",
@@ -481,18 +446,13 @@ with st.sidebar:
         use_container_width=True,
         disabled=not st.session_state.messages,
     )
-    if st.button("Clear chat", use_container_width=True):
+    if st.button("🗑️ Clear Chat History", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
 
-    st.caption(
-        "PyPDFLoader → RecursiveCharacterTextSplitter (1000/200) → "
-        "Gemini embeddings → Chroma → RetrievalQA."
-    )
-
 
 # --------------------------------------------------------------------------- #
-# Main
+# Main Body — Header, Key Gate, Document Uploader, Quick Prompts & Chat
 # --------------------------------------------------------------------------- #
 
 st.markdown(
@@ -500,50 +460,114 @@ st.markdown(
     "<div class='gr-hero-badge'>✨</div>"
     "<div><div class='gr-title'>Document Q&amp;A with Gemini</div></div>"
     "</div>"
-    "<p class='gr-sub'>Retrieval-augmented answers grounded in your PDF, with the exact "
-    "snippets they came from.</p>",
+    "<p class='gr-sub'>Answers grounded in your PDF, with exact source snippets.</p>",
     unsafe_allow_html=True,
 )
 
-badges([
-    ("ChromaDB Active", "ok" if st.session_state.engine else ""),
-    (f"Gemini {llm_model.replace('gemini-', '').replace('-', ' ').title()}", ""),
-    ("gemini-embedding-001", ""),
-    ("1000 / 200", ""),
-], dot=True)
+# Inline Key Input Gate (Triggers ONLY if no key is present in Secrets/ENV)
+inline_key = ""
+if not auto_key:
+    key_warning()
+    inline_key = st.text_input(
+        "Gemini API key",
+        type="password",
+        placeholder="Paste your Gemini API key (AIza…)",
+        label_visibility="collapsed",
+    ).strip()
+    if inline_key:
+        st.markdown(
+            "<span class='gr-badge ok'>Session Key Set</span>",
+            unsafe_allow_html=True,
+        )
 
-if st.session_state.indexed_name:
-    stats_card(st.session_state.doc_stats)
-else:
-    card(
-        "<b>No document indexed yet</b><br>"
-        "<span class='gr-muted'>Upload a PDF in the sidebar and click "
-        "<b>Index document</b> to start chatting with it.</span>"
+# Main PDF Upload Box
+with st.expander("📄 Upload & Index Document", expanded=not bool(st.session_state.indexed_name)):
+    uploaded = st.file_uploader(
+        "Choose a PDF", type=["pdf"], label_visibility="collapsed",
     )
 
-# ---- chat history -------------------------------------------------------- #
+    already_indexed = uploaded is not None and st.session_state.indexed_name == uploaded.name
+    if st.button(
+        "Index document", type="primary", use_container_width=True,
+        disabled=(uploaded is None or already_indexed),
+    ):
+        try:
+            resolve_api_key(inline_key)
+        except RuntimeError as exc:
+            st.error(str(exc))
+        else:
+            placeholder = st.empty()
+            with placeholder.container():
+                spinner("Reading, chunking, and indexing the PDF...")
+            try:
+                engine = RAGEngine(
+                    api_key=inline_key,
+                    embedding_model=embedding_model,
+                    llm_model=llm_model,
+                    k=k,
+                )
+                engine._llm()  # Validate LLM model ID before processing embeddings
+                count = engine.load_pdf(uploaded.getvalue(), filename=uploaded.name)
+            except Exception as exc:
+                placeholder.empty()
+                st.error(f"Could not index document: {exc}")
+                with st.expander("Traceback Details"):
+                    st.code(traceback.format_exc())
+            else:
+                placeholder.empty()
+                st.session_state.engine = engine
+                st.session_state.indexed_name = uploaded.name
+                st.session_state.chunk_count = count
+                st.session_state.indexed_with = llm_model
+                st.session_state.doc_stats = dict(engine.stats)
+                st.session_state.messages = []
+                st.success(f"Successfully indexed {uploaded.name} ({count} chunks).")
+
+    if st.session_state.indexed_name and already_indexed:
+        st.caption(f"✅ {st.session_state.indexed_name} is currently indexed.")
+
+# Metadata status chips
+badges([
+    ("ChromaDB Active", "ok" if st.session_state.engine else ""),
+    (llm_model, "warn" if llm_model in RETIRED_LLM_MODELS else ""),
+    ("gemini-embedding-001", ""),
+    (f"k={k}", ""),
+    ("chunk 1000 / 200", ""),
+], dot=True)
+
+# Document Stats Container
+if st.session_state.indexed_name:
+    stats_card(st.session_state.doc_stats)
+
+# Active Discussion Messages
 for message in st.session_state.messages:
     with st.chat_message(message["role"], avatar="🧑" if message["role"] == "user" else "✨"):
         st.markdown(message["content"])
         if message["role"] == "assistant":
             render_sources(message.get("sources") or [])
 
-# ---- quick questions ----------------------------------------------------- #
+# Quick Starter Action Buttons
 question = None
 if st.session_state.indexed_name:
     st.markdown("<div class='gr-h'>Quick questions</div>", unsafe_allow_html=True)
-    cols = st.columns(len(QUICK_QUESTIONS))
+    cols = st.columns([1, 1, 1], gap="small")
     for col, (label, prompt) in zip(cols, QUICK_QUESTIONS):
         if col.button(label, use_container_width=True):
             question = prompt
+elif not st.session_state.messages:
+    card(
+        "<b>No document indexed yet</b><br>"
+        "<span class='gr-muted'>Open <b>Upload &amp; Index Document</b> above, select a "
+        "PDF file, and click <b>Index document</b>.</span>"
+    )
 
+# Fixed Bottom Input Bar
 typed = st.chat_input(
-    "Ask something about the document…",
+    "Ask a question about your document...",
     disabled=not st.session_state.indexed_name,
 )
 question = typed or question
 
-# ---- answer -------------------------------------------------------------- #
 if question:
     st.session_state.messages.append({"role": "user", "content": question})
     with st.chat_message("user", avatar="🧑"):
@@ -552,7 +576,7 @@ if question:
     with st.chat_message("assistant", avatar="✨"):
         slot = st.empty()
         with slot.container():
-            spinner("Searching the document and writing the answer…")
+            spinner("Searching document context & generating response...")
         try:
             out = st.session_state.engine.answer(question)
             answer, sources = out["answer"], out["sources"]
