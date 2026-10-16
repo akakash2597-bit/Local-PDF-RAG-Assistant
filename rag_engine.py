@@ -28,7 +28,7 @@ from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
-from langchain_community.chains import RetrievalQA
+from langchain_classic.chains import RetrievalQA
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate

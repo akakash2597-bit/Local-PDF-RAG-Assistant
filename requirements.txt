@@ -6,3 +6,4 @@ langchain
 langchain-chroma
 chromadb
 langchain-community
+langchain-classic
