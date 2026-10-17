@@ -3,6 +3,8 @@ langchain
 langchain-community
 langchain-core
 langchain-google-genai
+langchain-chroma
 google-genai
 chromadb
 pypdf
+python-dotenv
