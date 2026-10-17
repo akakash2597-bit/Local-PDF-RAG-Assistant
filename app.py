@@ -70,11 +70,36 @@ html, body, [data-testid="stAppViewContainer"] { background: var(--gr-bg); }
 
 /* Responsive shell container */
 .block-container {
-    padding: 1.1rem 0.8rem 7.5rem 0.8rem;
+    padding: 3.5rem 0.9rem 7.5rem 0.9rem !important;   /* clears the mobile top bar */
     max-width: 900px;
 }
 @media (min-width: 768px) {
-    .block-container { padding: 2rem 1.5rem 7rem 1.5rem; }
+    .block-container { padding: 3.5rem 1.5rem 7rem 1.5rem !important; }
+}
+
+/* Top toolbar: transparent and collapsed so it never collides with the title */
+header[data-testid="stHeader"] {
+    background: transparent;
+    height: 0;
+    min-height: 0;
+}
+header[data-testid="stHeader"] > div:first-child { height: 0; }
+
+/* keep the sidebar toggle reachable, but out of the title's way */
+[data-testid="stSidebarCollapsedControl"] {
+    top: 0.5rem;
+    left: 0.3rem;
+    z-index: 999;
+}
+@media (min-width: 768px) {
+    [data-testid="stSidebarCollapsedControl"] { top: 0.75rem; left: 0.75rem; }
+}
+
+/* any deploy/menu toolbar sits top-right, below the title band */
+[data-testid="stToolbar"], [data-testid="stStatusWidget"] {
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 999;
 }
 
 /* Fluid headers that never overflow on small screens */
@@ -140,6 +165,23 @@ html, body, [data-testid="stAppViewContainer"] { background: var(--gr-bg); }
 .gr-warn-icon { font-size: 1rem; line-height: 1.25; }
 .gr-warn-body { font-size: 0.82rem; color: #ffd79a; line-height: 1.4; }
 .gr-warn-body b { color: #ffe6bd; }
+
+/* ---------- system key status chip ---------- */
+.gr-keychip {
+    display: inline-flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;
+    padding: 0.42rem 0.7rem; border-radius: 12px; margin-bottom: 0.5rem;
+    font-size: 0.83rem; font-weight: 650; color: #a6f4e2;
+    border: 1px solid rgba(89, 224, 197, 0.32);
+    background: linear-gradient(135deg, rgba(89,224,197,0.15), rgba(89,224,197,0.05));
+}
+.gr-keychip-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--gr-c);
+    box-shadow: 0 0 9px var(--gr-c);
+}
+.gr-keychip-src {
+    font-size: 0.7rem; font-weight: 600; color: var(--gr-muted);
+    border-left: 1px solid var(--gr-border); padding-left: 0.45rem;
+}
 
 /* Grid stats for document details */
 .gr-stats {
@@ -517,21 +559,36 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Inline Key Input Gate (Triggers ONLY if no key is present in Secrets/ENV)
+# ---- API key configuration (right below the title) ---------------------- #
 inline_key = ""
-if not auto_key:
-    key_warning()
-    inline_key = st.text_input(
-        "Gemini API key",
-        type="password",
-        placeholder="Paste your Gemini API key (AIza…)",
-        label_visibility="collapsed",
-    ).strip()
-    if inline_key:
+with st.expander("🔑 Gemini API Key Configuration", expanded=False):
+    if auto_key:
         st.markdown(
-            "<span class='gr-badge ok'>Session Key Set</span>",
+            "<div class='gr-keychip'><span class='gr-keychip-dot'></span>"
+            "✅ System API Key Active (Default)"
+            f"<span class='gr-keychip-src'>{esc(auto_source)}</span></div>",
             unsafe_allow_html=True,
         )
+        st.caption("Paste a key below only if you want to override it for this session.")
+    else:
+        key_warning()
+
+    inline_key = st.text_input(
+        "Custom Gemini API key",
+        type="password",
+        placeholder="Paste your Gemini API key (AIza…)",
+        help="Overrides the system key for this session only.",
+    ).strip()
+
+    if inline_key:
+        st.markdown(
+            "<span class='gr-badge ok'>Custom key set for this session</span>",
+            unsafe_allow_html=True,
+        )
+    elif auto_key:
+        st.caption("Using the system key — nothing to do here.")
+    else:
+        st.caption("No system key found. A key is required to index and ask questions.")
 
 # ---- Step 1 · Document Upload & Indexing -------------------------------- #
 st.markdown(
