@@ -92,7 +92,7 @@ html, body, [data-testid="stAppViewContainer"] { background: var(--gr-bg); }
     box-shadow: 0 8px 24px rgba(124, 156, 255, 0.35);
 }
 .gr-title {
-    font-size: clamp(1.25rem, 5vw, 1.75rem); 
+    font-size: clamp(1.2rem, 4vw, 1.8rem); 
     font-weight: 750; 
     letter-spacing: -0.02em; 
     line-height: 1.2;
@@ -101,8 +101,22 @@ html, body, [data-testid="stAppViewContainer"] { background: var(--gr-bg); }
     -webkit-text-fill-color: transparent;
     word-break: break-word;
 }
-.gr-sub { color: var(--gr-muted); font-size: clamp(0.78rem, 3vw, 0.86rem); margin: 0 0 0.9rem 0; }
+.gr-sub { color: var(--gr-muted); font-size: clamp(0.8rem, 2.6vw, 0.9rem); margin: 0 0 0.9rem 0; }
 .gr-h { font-size: 0.95rem; font-weight: 700; margin: 0.2rem 0; }
+
+/* ---- step markers ---- */
+.gr-step {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: clamp(0.85rem, 3vw, 0.95rem); font-weight: 700;
+    letter-spacing: -0.01em; margin: 0.9rem 0 0.3rem 0;
+}
+.gr-step-num {
+    width: 22px; height: 22px; border-radius: 7px; flex: 0 0 auto;
+    display: grid; place-items: center; font-size: 0.72rem; font-weight: 800;
+    color: #080c18;
+    background: linear-gradient(135deg, var(--gr-a), var(--gr-b));
+    box-shadow: 0 4px 14px rgba(124, 156, 255, 0.30);
+}
 .gr-muted { color: var(--gr-muted); }
 
 /* Card components */
@@ -248,8 +262,47 @@ html, body, [data-testid="stAppViewContainer"] { background: var(--gr-bg); }
 
 /* Media Query Touch Improvements */
 @media (max-width: 640px) {
-    .stButton > button { min-height: 40px; }
+    .stButton > button { min-height: 42px; }
 }
+
+/* ---- touch targets: >= 42px everywhere ---- */
+.stButton > button,
+.stDownloadButton > button,
+[data-testid="stBaseButton-secondary"],
+[data-testid="stBaseButton-primary"] {
+    min-height: 42px;
+    line-height: 1.25;
+}
+
+/* file uploader drop zone: tall enough to tap comfortably */
+[data-testid="stFileUploaderDropzone"],
+[data-testid="stFileUploaderDropzoneInput"],
+section[data-testid="stFileUploader"] button {
+    min-height: 42px;
+}
+[data-testid="stFileUploaderDropzone"] {
+    padding: 1rem 0.75rem;
+    border-radius: 14px;
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+}
+@media (min-width: 768px) {
+    [data-testid="stFileUploaderDropzone"] { flex-direction: row; padding: 0.9rem 1rem; }
+}
+
+/* sidebar toggle stays tappable */
+[data-testid="stSidebarCollapsedControl"] button,
+[data-testid="stSidebarCollapseButton"] button {
+    min-height: 42px; min-width: 42px;
+}
+
+/* viewport scaling: no horizontal overflow on phones */
+html, body { -webkit-text-size-adjust: 100%; }
+[data-testid="stAppViewContainer"], .stApp { max-width: 100vw; overflow-x: hidden; }
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li { overflow-wrap: anywhere; }
+img, pre, code, table { max-width: 100%; }
 </style>
 """
 
@@ -436,7 +489,7 @@ with st.sidebar:
 
     st.divider()
     st.download_button(
-        "⬇️ Download Discussion (.md)",
+        "⬇️ Download Chat History",
         data=build_markdown(),
         file_name=(
             f"discussion_{os.path.splitext(st.session_state.indexed_name)[0]}.md"
@@ -480,7 +533,12 @@ if not auto_key:
             unsafe_allow_html=True,
         )
 
-# Main PDF Upload Box
+# ---- Step 1 · Document Upload & Indexing -------------------------------- #
+st.markdown(
+    "<div class='gr-step'><span class='gr-step-num'>1</span>"
+    "<span>Document Upload &amp; Indexing</span></div>",
+    unsafe_allow_html=True,
+)
 with st.expander("📄 Upload & Index Document", expanded=not bool(st.session_state.indexed_name)):
     uploaded = st.file_uploader(
         "Choose a PDF", type=["pdf"], label_visibility="collapsed",
@@ -538,6 +596,13 @@ badges([
 # Document Stats Container
 if st.session_state.indexed_name:
     stats_card(st.session_state.doc_stats)
+
+# ---- Step 2 · Chat Discussion ------------------------------------------- #
+st.markdown(
+    "<div class='gr-step'><span class='gr-step-num'>2</span>"
+    "<span>Chat Discussion</span></div>",
+    unsafe_allow_html=True,
+)
 
 # Active Discussion Messages
 for message in st.session_state.messages:
